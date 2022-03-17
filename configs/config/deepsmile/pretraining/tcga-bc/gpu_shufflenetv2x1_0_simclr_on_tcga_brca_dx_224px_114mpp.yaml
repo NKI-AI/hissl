@@ -1,0 +1,214 @@
+# @package _global_
+config:
+  VERBOSE: False
+  LOG_FREQUENCY: 1
+  TEST_ONLY: False
+  TEST_MODEL: False
+  SEED_VALUE: 0
+  MULTI_PROCESSING_METHOD: forkserver
+  MONITOR_PERF_STATS: True
+  PERF_STAT_FREQUENCY: 10
+  ROLLING_BTIME_FREQ: 5
+  DATA:
+    NUM_DATALOADER_WORKERS: 0
+    #--- Start DLUP WSI Dataset params
+    DLUP:
+      ROOT_DIR: /hissl # root dir from where the relative paths of the FOLD_FILE will work
+      CROP: True
+      # --- Start DLUP Masking params for DLUP Dataset
+      MASK_PARAMS:
+        MASK_FACTORY: 'load_from_disk' # ["no_mask", "compute_fesi", "compute_improved_fesi", "load_from_disk"]
+        MASK_FILE_PATHS: '/project/schirris/hissl-jobs/deepsmile-rev/pretraining/tcga-bc/data/splits/trainval/paths_trainval_masks_0.txt'
+        MASK_ROOT: '/project/schirris/data/tcga_brca_dx/data_large/gdc_manifest_all_BRCA_DX-2020-08-05/masks/mask_and_check_tiles_mpp1.14_ts224_fesi_0.8'
+        FOREGROUND_THRESHOLD: 0.5  # If >= value*100% pixels of tile is mask, state tile is foreground.
+      # --- End DLUP Masking params for DLUP Dataset
+      MPP: 1.14
+      TILE_SIZE:
+        X: 224
+        Y: 224
+      TILE_OVERLAP:
+        X: 0
+        Y: 0
+      TILE_MODE: skip  # skip, overflow, or fit
+    TRAIN:
+      DATA_SOURCES: [dlup_wsi]
+      DATASET_NAMES: [imagenet1k_folder] # needed because of a stupid assert that shouldn't be there.
+#      DATASET_NAMES: [test_dlup_wsi_on_1_wsi]
+      PREFETCH_FACTOR: 2
+    #--- End DLUP WSI Dataset params
+      BATCHSIZE_PER_REPLICA: 2
+      LABEL_TYPE: sample_index    # just an implementation detail. Label isn't used
+      TRANSFORMS:
+        - name: ImgReplicatePil
+          num_times: 2
+        - name: RandomResizedCrop
+          size: 224
+        - name: RandomHorizontalFlip
+          p: 0.5
+        - name: ImgPilColorDistortion # has both color jitter and grayscale
+          strength: 1.0
+        - name: ToTensor
+      COLLATE_FUNCTION: simclr_collator
+      MMAP_MODE: True
+      COPY_TO_LOCAL_DISK: False
+      DATA_LIMIT: -1
+      DROP_LAST: True
+      COPY_DESTINATION_DIR: "/tmp/imagenet1k"
+  TRAINER:
+    TRAIN_STEP_NAME: standard_train_step
+  METERS:
+    name: ""
+  MODEL:
+    TRUNK:
+      NAME: shufflenet
+      SHUFFLENET:
+        WIDTH: v2x1.0
+    HEAD:
+      PARAMS: [
+        ["mlp", {"dims": [1024, 1024], "use_relu": True}],
+        ["mlp", {"dims": [1024, 128]}],
+      ]
+    SYNC_BN_CONFIG:
+      CONVERT_BN_TO_SYNC_BN: True
+      SYNC_BN_TYPE: pytorch
+    AMP_PARAMS:
+      USE_AMP: False
+      AMP_ARGS: {"opt_level": "O3", "keep_batchnorm_fp32": True, "master_weights": True, "loss_scale": "dynamic"}
+      AMP_TYPE: pytorch
+    FSDP_CONFIG: # TAKEN FROM DEFAULTS.YAML
+        # set this option to True to enable FSDP and automatically determine the config
+        # for FSDP based on AMP true/false.
+        AUTO_SETUP_FSDP: False
+        # Set this option to a positive number to automatically wrap "big" layers with
+        # a dedicated FSDP wrapping: the number provided here is the number of
+        # parameters that serves as threshold to decide if a layer is "big"
+        AUTO_WRAP_THRESHOLD: 0
+        # Parameters of fairscale FSDP
+        flatten_parameters: True
+        mixed_precision: True
+        fp32_reduce_scatter: False  # Only makes sense to be True when mixed_precision is True.
+        compute_dtype: float32  # Choose "float32" or "float16"
+        bucket_cap_mb: 0
+        clear_autocast_cache: True
+        verbose: True
+        AMP_TYPE: O1 # Not used, but hydra_config wants to delete this and otherwise it throws an error
+  LOSS:
+    name: simclr_info_nce_loss
+    simclr_info_nce_loss:
+      temperature: 0.5
+      buffer_params:
+        embedding_dim: 128
+  OPTIMIZER:
+    name: "adam"
+    # whether to shard optimizer state as per ZeRO https://arxiv.org/abs/1910.02054
+    use_zero: False
+    use_larc: False  # supported for SGD only for now
+    larc_config:
+      clip: False
+      eps: 1e-08
+      trust_coefficient: 0.001
+    weight_decay: 0.0001
+    momentum: 0.9
+    nesterov: False
+    # for how many epochs to do training. only counts training epochs.
+    num_epochs: 100
+    betas: [.9, .999] # for Adam/AdamW
+    # whether to regularize batch norm. if set to False, weight decay of batch norm params is 0.
+    regularize_bn: False
+    # whether to regularize bias parameter. if set to False, weight decay of bias params is 0.
+    regularize_bias: True
+    # Parameters to omit from regularization. Any named parameter whose name
+    # contains any of these strings will be omitted from regularization.
+    # For example, we don't want to regularize the class token or position
+    # embeddings in the vision transformer, so we pass:
+    # non_regularized_parameters: ['class_token', 'pos_embedding']
+    non_regularized_parameters: []
+    # we support using a different LR and weight decay for head and trunk.
+    # one needs to set the flag "use_different_values: True" in order to enable
+    # this functionality. We use the same type of param scheduler for the trunk and head
+    # but allow different LR and weight decay values.
+    head_optimizer_params:
+      # if the head should use a different LR than the trunk. If yes, then specify the
+      # param_schedulers.lr_head settings. Otherwise if set to False, the
+      # param_scheduelrs.lr will be used automatically.
+      use_different_lr: False
+      # if the head should use a different weight decay value than the trunk.
+      use_different_wd: False
+      # if using different weight decay value for the head, set here. otherwise, the
+      # same value as trunk will be automatically used.
+      weight_decay: 0.0001
+    param_schedulers:
+      lr:
+        # we make it convenient to scale Learning rate automatically as per the scaling
+        # rule specified in https://arxiv.org/abs/1706.02677 (ImageNet in 1Hour).
+        auto_lr_scaling:
+          # if set to True, learning rate will be scaled.
+          auto_scale: False
+          # base learning rate value that will be scaled.
+          base_value: 0.0001
+          # batch size for which the base learning rate is specified. The current batch size
+          # is used to determine how to scale the base learning rate value.
+          # scaled_lr = ((batchsize_per_gpu * world_size) * base_value ) / base_lr_batch_size
+          base_lr_batch_size: 256
+          # scaling_type can be set to "sqrt" to reduce the impact of scaling on the base value
+          scaling_type: "linear"
+        name: "constant"
+        update_interval: "epoch"
+        # values indicate the step LR learning rate values. Instead of taking gamma, we
+        # take the actual LR value to use. This allows freedom to not having to use
+        # a fixed gamma.
+        values: []
+        # milestones denotes the epochs at which learning rate is decayed.
+        milestones: []
+        # The below parameters are valid for lr.name = "composite". Various schedulers
+        # can then be composed together for the training. For example: linear warmup +
+        # multistep schedule after warmup.
+        schedulers: []
+        interval_scaling: []
+        lengths: []
+        # =====cosine learning rate specific =======
+        start_value: 0.0001
+        end_value: 0.0001
+        # =====constant learning rate specific =======
+        value: 0.0001
+      # if we want to use a different LR scheduler for the head, then specify
+      # the lr_head similar to "lr"
+      lr_head:
+        auto_lr_scaling:
+          auto_scale: False
+          base_value: 0.1
+          base_lr_batch_size: 256
+          scaling_type: "linear"
+        name: "multistep"
+        update_interval: "epoch"
+        values: [0.1, 0.01, 0.001]
+        milestones: [30, 60]
+        # The below parameters are valid for lr.name = "composite". Various schedulers
+        # can then be composed together for the training. For example: linear warmup +
+        # multistep schedule after warmup.
+        schedulers: []
+        interval_scaling: []
+        lengths: []
+        # =====cosine learning rate specific =======
+        start_value: 0.1
+        end_value: 0.0
+        # =====constant learning rate specific =======
+        value: 0.1
+    # Under certain cases, we want to use a single param_group that consists of
+    # the parameters returned from model.parameters() list. For example, when a model
+    # is wrapped by FSDP with flattening, individual parameters inside the model are
+    # replaced with a flattened parameter. Therefore, this option is needed in that case.
+    construct_single_param_group_only: False
+  DISTRIBUTED:
+    BACKEND: nccl
+    NUM_NODES: 1
+    NUM_PROC_PER_NODE: 1
+    INIT_METHOD: tcp
+    RUN_ID: auto
+  MACHINE:
+    DEVICE: gpu
+  CHECKPOINT:
+    DIR: ""
+    AUTO_RESUME: True
+    CHECKPOINT_FREQUENCY: 5
+    OVERWRITE_EXISTING: false

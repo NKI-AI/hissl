@@ -1,0 +1,43 @@
+# @package _global_
+engine_name: extract_features
+config:
+  TEST_MODEL: True
+  DATA:
+    NUM_DATALOADER_WORKERS: 5
+    TRAIN:
+      DATA_SOURCES: [kather_msi_dataset]
+      DATA_PATHS: [/hissl/tools/reproduce_deepsmile/2_download_tcga_crck/train_paths.npy]
+      REMOVE_IMG_PATH_PREFIX: "train/"
+      NEW_IMG_PATH_PREFIX: "/hissl/tools/reproduce_deepsmile/2_download_tcga_crck/train/"
+      DATASET_NAMES: [imagenet1k_folder]
+      BATCHSIZE_PER_REPLICA: 256
+      MMAP_MODE: False
+      COPY_TO_LOCAL_DISK: False
+      ENABLE_QUEUE_DATASET: False
+      TRANSFORMS:
+        - name: ToTensor
+    TEST:
+      DATA_SOURCES: [kather_msi_dataset]
+      DATA_PATHS: [/hissl/tools/reproduce_deepsmile/2_download_tcga_crck/test_paths.npy]
+      REMOVE_IMG_PATH_PREFIX: "test/"
+      NEW_IMG_PATH_PREFIX: "/hissl/tools/reproduce_deepsmile/2_download_tcga_crck/test/"
+      DATASET_NAMES: [imagenet1k_folder]
+      BATCHSIZE_PER_REPLICA: 256
+      MMAP_MODE: False
+      COPY_TO_LOCAL_DISK: False
+      ENABLE_QUEUE_DATASET: False
+      TRANSFORMS:
+        - name: ToTensor
+  MODEL:
+    TRUNK:
+      NAME: resnet
+      RESNETS:
+        DEPTH: 18
+    FEATURE_EVAL_SETTINGS:
+      EVAL_MODE_ON: True
+      EXTRACT_TRUNK_FEATURES_ONLY: True
+  DISTRIBUTED:
+    NUM_NODES: 1
+    NUM_PROC_PER_NODE: 4
+  MACHINE:
+    DEVICE: gpu
