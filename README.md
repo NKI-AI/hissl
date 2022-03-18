@@ -3,6 +3,12 @@ HISSL: HIstology Self-Supervised Learning
 
 === WORK IN PROGRESS ===
 
+- Submodule initialization does not work because DLUP is not yet publicly available
+- Current scripts with singularity calls might not work since DLUP is installed as editable and the entire hissl repo is mounted on the singularity, meaning there will be an empty DLUP directory
+  - It is recommended to remove the `--bind $HISSL_ROOT:/hissl` from the singularity options for the time being, meaning changes you make to `hissl` are not reflected inside the container. This will allow you to run all the DeepSMILE reproduction scripts.
+
+=========================
+
 HISSL performs self-supervised pre-training of a feature extractor on histopathology data. It is
 used for _DeepSMILE: Contrastive self-supervised pre-training benefits MSI and HRD
 classification directly from H&E whole-slide images in colorectal and breast cancer_, and is meant to
