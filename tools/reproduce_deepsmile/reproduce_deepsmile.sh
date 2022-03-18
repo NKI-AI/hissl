@@ -1,8 +1,5 @@
 #!/bin/bash
 
-#TODO fix binding of hissl to the container to make sure we have the latest dlup
-#TODO build new docker image with the latest software
-
 run_line()
 {
     local EXECLINE=$2
@@ -18,26 +15,26 @@ run_line()
 }
 
 # Check if singularity image is available
-cd 0_check_singularity && bash check_singularity.sh && cd .. # #TODO: Add docker image to dockerhub.
+cd 0_check_singularity && bash check_singularity.sh && cd ..
 
 # Download all BC images from TCGA
 read -e -p "Download TCGA-BC WSIs? [(y)/n]: " -i "y" EXECLINE
-DOWNLOAD_TCGA="cd 1_download_tcga_bc && bash download_tcga_bc_subset_5.sh && cd .." # Works #TODO change to the full
+DOWNLOAD_TCGA="cd 1_download_tcga_bc && bash download_tcga_bc.sh && cd .."
 run_line "$DOWNLOAD_TCGA" $EXECLINE
 
 # Download all CRC tiles from zenodo
 read -e -p "Download and unzip TCGA-CRCk tiles? [(y)/n]: " -i "y" EXECLINE
-DOWNLOAD_TCGACRCK="cd 2_download_tcga_crck && download_tcga_crck.sh & cd .." # Works, I think. Check with latest docker image.
+DOWNLOAD_TCGACRCK="cd 2_download_tcga_crck && download_tcga_crck.sh & cd .."
 run_line "$DOWNLOAD_TCGACRCK" $EXECLINE
 
 # Create filepaths for the TCGA-CRCk tiles and save them to a .np object as used by VISSL's disk_filelist dataset
 read -e -p "Create filepaths for TCGA-CRCk tiles? [(y)/n]: " -i "y" EXECLINE
-PATHS_TCGACRCK="cd 2_download_tcga_crck && bash create_filepaths.sh & cd .." # Works, I think. Check with latest docker image.
+PATHS_TCGACRCK="cd 2_download_tcga_crck && bash create_filepaths.sh & cd .."
 run_line "$PATHS_TCGACRCK" $EXECLINE
 
 # Pre-compute and save masks for the TCGA BC WSIs
 read -e -p "Precompute the masks for all TCGA-BC WSIs in the  [(y)/n]: " -i "y" EXECLINE
-RUN_MASKS="cd 3_compute_masks_for_tcga_bc && bash mask_and_check_tiles.sh 1.14 224 fesi 0.5 ../1_download_tcga_bc $PWD && cd .." # Maybe works? Check with good image.
+RUN_MASKS="cd 3_compute_masks_for_tcga_bc && bash mask_and_check_tiles.sh 1.14 224 fesi 0.5 ../1_download_tcga_bc $PWD && cd .."
 run_line "$RUN_MASKS" $EXECLINE
 
 ## Create splits for TCGA-BC as is required for SSL
@@ -45,7 +42,7 @@ read -e -p "Create splits for TCGA-BC? [(y)/n]: " -i "y" EXECLINE
 RUN_SPLITS="cd 4_create_splits_for_tcga_bc && bash create_splits.sh & cd .."
 run_line "$RUN_SPLITS" $EXECLINE
 #
-# Pretrain on CRCk. Will take ~4 days on 1 node with 4 GeForce 1080Ti for 100 epochs
+# Pretrain on CRCk. Will take ~4 days on 1 node with 1 GeForce 1080Ti for 100 epochs
 #NUM_EPOCHS_CRCK=100
 read -e -p "Pretrain an encoder on TCGA-CRCk? [(y)/n]: " -i "y" EXECLINE
 
