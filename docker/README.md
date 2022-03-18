@@ -29,6 +29,8 @@ This may be a better option if you wish to make changes to the Dockerfile
 |:-------------------------------|
 | This is currently not possible |
 
+0. Install [git-lfs](https://git-lfs.github.com/) for your OS. This is required to clone the repository and pull the model weights.
+
 1. Git clone this repo:
 ``` bash
 git clone git@github.com:NKI-AI/hissl.git
