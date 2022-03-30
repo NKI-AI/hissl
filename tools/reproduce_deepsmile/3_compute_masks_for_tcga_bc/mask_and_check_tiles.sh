@@ -35,6 +35,7 @@ echo "Writing to $OUTPUT_DIRECTORY..."
 # Search for all .svs in the img source directory, and loop over all results
 EXTENSION=".svs"
 find $IMG_SOURCE_DIRECTORY -name "*$EXTENSION" | while read line
+# Pass the found filepath as input
 do
     CHARS_TO_STRIP=$(expr $LEN_SOURCE_DIRECTORY + 1)
     RELATIVE_DIR=${line:$CHARS_TO_STRIP} # Strip the source directory from the found file path and the /
@@ -42,11 +43,6 @@ do
 
     # Go over a single WSI, compute the mask, and save tiling metadata without saving the tiles.
     echo "Preprocessing $line ..."
-
-    # Pass the found filepath as input
-    # Save the output in the same tree structure as source directory
-
-    #TODO the $PWD is not good, because that includes ~
     singularity exec --no-home \
       --bind ../../../../hissl:/hissl \
       --pwd /hissl/tools/reproduce_deepsmile/3_compute_masks_for_tcga_bc \
@@ -59,4 +55,5 @@ do
         --foreground-threshold $FOREGROUND_THRESHOLD \
         $line \
         $OUTPUT_DIRECTORY/$RELATIVE_DIR_WITHOUT_FILE_EXTENSION
+    #     ^---- Save the output in the same tree structure as source directory
 done
