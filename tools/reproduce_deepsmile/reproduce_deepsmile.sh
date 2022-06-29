@@ -68,18 +68,18 @@ done
 cd 7_extract_features
 
 read -e -p "Extract ImageNet features for all tiles of TCGA-CRCk? [(y)/n]: " -i "y" EXECLINE
-run_line "extract_imagenet_features_tcga_bc.sh" $EXECLINE
+run_line "bash extract_imagenet_features_tcga_crck.sh" $EXECLINE
 
 read -e -p "Extract SSL features for all tiles of TCGA-CRCk? [(y)/n]: " -i "y" EXECLINE
-run_line "extract_imagenet_features_tcga_crck.sh" $EXECLINE
+run_line "bash extract_ssl_features_tcga_crck.sh" $EXECLINE
 
 read -e -p "Extract ImageNet features for all tiles of TCGA-BC? [(y)/n]: " -i "y" EXECLINE
-run_line "extract_ssl_features_tcga_bc.sh"
+run_line "bash extract_imagenet_features_tcga_bc.sh" $EXECLINE
 
 for FOLD in "${FOLDS[@]}"
 do
     read -e -p "Extract SSL features with extractor trained on the train-val set of fold ${FOLD} for all tiles of TCGA-BC? [(y)/n]: " -i "y" EXECLINE
-    run_line "extract_ssl_features_tcga_crck.sh ${FOLD}" $EXECLINE
+    run_line "bash extract_ssl_features_tcga_bc.sh ${FOLD}" $EXECLINE
 done
 
 cd ..
