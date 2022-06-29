@@ -1,0 +1,52 @@
+# @package _global_
+engine_name: extract_features
+config:
+  TEST_MODEL: False
+  DATA:
+    DLUP:
+      ROOT_DIR: /hissl/tools/reproduce_deepsmile/1_download_tcga_bc/images # root dir from where the relative paths of the FOLD_FILE will work
+      CROP: True
+      # --- Start DLUP Masking params for DLUP Dataset
+      MASK_PARAMS:
+        MASK_FACTORY: 'load_from_disk' # ["no_mask", "compute_fesi", "compute_improved_fesi", "load_from_disk"]
+        MASK_FILE_PATHS: '/hissl/tools/reproduce_deepsmile/4_create_splits_for_tcga_bc/splits/paths_all_masks.txt'
+        MASK_ROOT: '/hissl/tools/reproduce_deepsmile/1_download_tcga_bc/masks/mask_and_check_tiles_mpp1.14_ts224_fesi_0.5'
+        FOREGROUND_THRESHOLD: 0.5  # If >= value*100% pixels of tile is mask, state tile is foreground.
+      # --- End DLUP Masking params for DLUP Dataset
+      MPP: 1.14
+      TILE_SIZE:
+        X: 224
+        Y: 224
+      TILE_OVERLAP:
+        X: 0
+        Y: 0
+      TILE_MODE: skip  # skip, overflow, or fit
+    NUM_DATALOADER_WORKERS: 5
+    TRAIN:
+      #--- Start DLUP WSI Dataset params
+      DATA_SOURCES: [dlup_wsi]
+      DATA_PATHS: [/hissl/tools/reproduce_deepsmile/4_create_splits_for_tcga_bc/splits/paths_all.txt]
+      DATASET_NAMES: [imagenet1k_folder]
+      BATCHSIZE_PER_REPLICA: 256
+      MMAP_MODE: False
+      COPY_TO_LOCAL_DISK: False
+      ENABLE_QUEUE_DATASET: False
+      TRANSFORMS:
+        - name: ToTensor
+  MODEL:
+    WEIGHTS_INIT:
+      SKIP_LAYERS: [ 'num_batches_tracked' ]
+      APPEND_PREFIX: 'trunk._feature_blocks.'
+      STATE_DICT_KEY_NAME: ''
+    TRUNK:
+      NAME: resnet
+      RESNETS:
+        DEPTH: 18
+    FEATURE_EVAL_SETTINGS:
+      EVAL_MODE_ON: True
+      EXTRACT_TRUNK_FEATURES_ONLY: True
+  DISTRIBUTED:
+    NUM_NODES: 1
+    NUM_PROC_PER_NODE: 4
+  MACHINE:
+    DEVICE: gpu
